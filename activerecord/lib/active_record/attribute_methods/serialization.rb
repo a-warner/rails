@@ -205,8 +205,8 @@ module ActiveRecord
           end
         end
 
-        def available_serialized_attribute_keys(for_attribute_keys = attributes.keys, keys = self.class.serialized_attributes.keys)
-          for_attribute_keys.map(&:to_s) & keys.map(&:to_s)
+        def available_serialized_attribute_keys(for_attribute_keys = attributes.keys)
+          for_attribute_keys.map(&:to_s) & self.class.serialized_attributes.keys
         end
       end
     end
