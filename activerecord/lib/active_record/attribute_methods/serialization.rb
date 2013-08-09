@@ -122,7 +122,7 @@ module ActiveRecord
 
         def _field_changed?(attr, old, value)
           if self.class.serialized_attributes.include?(attr)
-            serialized_attribute_changes.include?(attr)
+            old != value || serialized_attribute_changes.include?(attr)
           else
             super
           end
@@ -161,17 +161,39 @@ module ActiveRecord
         def serialized_attribute_changes
           self.class.serialized_attributes.keys.each_with_object({}) do |key, changed_attrs|
             if @attributes[key] && @attributes[key].original_value.hash != __send__(key).hash
-              changed_attrs[key] = __send__(key)
+              changed_attrs[key] = @attributes[key].original_value
             end
           end
         end
 
         def update_columns(attributes)
           super(attributes).tap do
-            (attributes.keys.map(&:to_s) & self.class.serialized_attributes.keys).each do |updated_attribute|
-              @attributes[updated_attribute].unchanged!
-            end
+            serialized_attributes_unchanged!(attributes.keys.map(&:to_s) & self.class.serialized_attributes.keys)
           end
+        end
+
+        def save(*)
+          super.tap do |status|
+            serialized_attributes_unchanged! if status
+          end
+        end
+
+        def save!(*)
+          super.tap do
+            serialized_attributes_unchanged!
+          end
+        end
+
+        def reload(*)
+          super.tap do
+            serialized_attributes_unchanged!
+          end
+        end
+
+        private
+
+        def serialized_attributes_unchanged!(keys = self.class.serialized_attributes.keys)
+          keys.each {|k| @attributes[k] && @attributes[k].unchanged! }
         end
       end
     end
