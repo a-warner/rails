@@ -492,6 +492,16 @@ class DirtyTest < ActiveRecord::TestCase
     end
   end
 
+  def test_changed_serialized_attributes_should_also_be_in_previous_changes
+    topic = Topic.find(Topic.create!(:author_name => 'Bill', :content => {:a => "a"}).id)
+    assert topic.previous_changes.empty?
+
+    topic.content[:c] = 'd'
+    topic.save!
+
+    assert topic.previous_changes.key?('content')
+  end
+
   def test_previous_changes
     # original values should be in previous_changes
     pirate = Pirate.new
