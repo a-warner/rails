@@ -447,6 +447,7 @@ class DirtyTest < ActiveRecord::TestCase
       topic = Topic.create!(:content => {:a => "a"})
       topic.content[:b] = "b"
       assert topic.changed?
+      assert topic.content_changed?
       topic.save!
       assert_equal "b", topic.content[:b]
       topic.reload
