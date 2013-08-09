@@ -86,6 +86,10 @@ module ActiveRecord
           self.state = :serialized
           self.value = coder.dump(value)
         end
+
+        def unchanged!
+          self.original_value = state == :serialized ? coder.load(value) : coder.load(coder.dump(value))
+        end
       end
 
       # This is only added to the model when serialize is called, which
@@ -100,8 +104,7 @@ module ActiveRecord
 
             serialized_attributes.each do |key, coder|
               if attributes.key?(key)
-                original_value = serialized == :serialized ? coder.load(attributes[key]) : coder.load(coder.dump(attributes[key]))
-                attributes[key] = Attribute.new(coder, attributes[key], serialized, original_value)
+                attributes[key] = Attribute.new(coder, attributes[key], serialized).tap(&:unchanged!)
               end
             end
 
@@ -156,9 +159,18 @@ module ActiveRecord
         end
 
         def serialized_attribute_changes
-          self.class.serialized_attributes.keys.inject({}) do |changed_attrs, key|
-            changed_attrs[key] = __send__(key) if @attributes[key].original_value.hash != __send__(key).hash
-            changed_attrs
+          self.class.serialized_attributes.keys.each_with_object({}) do |key, changed_attrs|
+            if @attributes[key] && @attributes[key].original_value.hash != __send__(key).hash
+              changed_attrs[key] = __send__(key)
+            end
+          end
+        end
+
+        def update_columns(attributes)
+          super(attributes).tap do
+            (attributes.keys.map(&:to_s) & self.class.serialized_attributes.keys).each do |updated_attribute|
+              @attributes[updated_attribute].unchanged!
+            end
           end
         end
       end
