@@ -159,8 +159,8 @@ module ActiveRecord
         end
 
         def serialized_attribute_changes
-          self.class.serialized_attributes.keys.each_with_object({}) do |key, changed_attrs|
-            if @attributes[key] && @attributes[key].original_value.hash != __send__(key).hash
+          available_serialized_attribute_keys.each_with_object({}) do |key, changed_attrs|
+            if @attributes[key].original_value.hash != __send__(key).hash
               changed_attrs[key] = @attributes[key].original_value
             end
           end
@@ -168,7 +168,7 @@ module ActiveRecord
 
         def update_columns(attributes)
           super(attributes).tap do
-            serialized_attributes_unchanged!(attributes.keys.map(&:to_s) & self.class.serialized_attributes.keys)
+            serialized_attributes_unchanged!(attributes.keys)
           end
         end
 
@@ -192,8 +192,14 @@ module ActiveRecord
 
         private
 
-        def serialized_attributes_unchanged!(keys = self.class.serialized_attributes.keys)
-          keys.each {|k| @attributes[k] && @attributes[k].unchanged! }
+        def serialized_attributes_unchanged!(attribute_keys = attributes.keys)
+          available_serialized_attribute_keys(attribute_keys).each do |k|
+            @attributes[k].unchanged!
+          end
+        end
+
+        def available_serialized_attribute_keys(for_attribute_keys = attributes.keys, keys = self.class.serialized_attributes.keys)
+          for_attribute_keys.map(&:to_s) & keys.map(&:to_s)
         end
       end
     end
