@@ -446,7 +446,7 @@ class DirtyTest < ActiveRecord::TestCase
     with_partial_writes(Topic) do
       topic = Topic.create!(:content => {:a => "a"})
       topic.content[:b] = "b"
-      #assert topic.changed? # Known bug, will fail
+      assert topic.changed?
       topic.save!
       assert_equal "b", topic.content[:b]
       topic.reload
@@ -475,6 +475,20 @@ class DirtyTest < ActiveRecord::TestCase
       topic.update_columns author_name: 'John'
       topic = Topic.first
       assert_not_nil topic.content
+    end
+  end
+
+  def test_save_should_not_update_unchanged_serialized_attributes
+    with_partial_writes(Topic) do
+      topic = Topic.find(Topic.create!(:author_name => 'Bill', :content => {:a => "a"}).id)
+      assert_empty topic.send(:keys_for_partial_write)
+
+      topic.content[:b] = 'b'
+
+      assert_not_empty topic.send(:keys_for_partial_write)
+      topic.save!
+
+      assert_equal Topic.find(topic.id).content[:b], 'b'
     end
   end
 
