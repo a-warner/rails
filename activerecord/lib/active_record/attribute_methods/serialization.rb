@@ -75,7 +75,7 @@ module ActiveRecord
         end
       end
 
-      class Attribute < Struct.new(:coder, :value, :state) # :nodoc:
+      class Attribute < Struct.new(:coder, :value, :state, :original_value) # :nodoc:
         def unserialized_value(v = value)
           state == :serialized ? unserialize(v) : value
         end
@@ -107,7 +107,8 @@ module ActiveRecord
 
             serialized_attributes.each do |key, coder|
               if attributes.key?(key)
-                attributes[key] = Attribute.new(coder, attributes[key], serialized)
+                original_value = serialized == :serialized ? coder.load(attributes[key]) : coder.load(coder.dump(attributes[key]))
+                attributes[key] = Attribute.new(coder, attributes[key], serialized, original_value)
               end
             end
 
@@ -125,7 +126,7 @@ module ActiveRecord
 
         def _field_changed?(attr, old, value)
           if self.class.serialized_attributes.include?(attr)
-            old != value
+            serialized_attribute_changes.include?(attr)
           else
             super
           end
@@ -154,6 +155,17 @@ module ActiveRecord
             @attributes[name].serialized_value
           else
             super
+          end
+        end
+
+        def changed_attributes
+          super.merge(serialized_attribute_changes)
+        end
+
+        def serialized_attribute_changes
+          self.class.serialized_attributes.keys.inject({}) do |changed_attrs, key|
+            changed_attrs[key] = __send__(key) if @attributes[key].original_value.hash != __send__(key).hash
+            changed_attrs
           end
         end
       end
