@@ -167,7 +167,7 @@ module ActiveRecord
 
         def serialized_attribute_changes
           available_serialized_attribute_keys.each_with_object({}) do |key, changed_attrs|
-            if @attributes[key].original_value.hash != __send__(key).hash
+            if @attributes[key].original_value != __send__(key)
               changed_attrs[key] = @attributes[key].original_value
             end
           end
