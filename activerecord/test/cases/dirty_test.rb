@@ -503,6 +503,14 @@ class DirtyTest < ActiveRecord::TestCase
     assert topic.previous_changes.key?('content')
   end
 
+  def test_changes_for_serialized_attributes
+    topic = Topic.create!(:author_name => 'Andrew', :content => { :a => 'a' })
+
+    topic.content[:b] = 'b'
+
+    assert_equal({ :a => 'a' }.with_indifferent_access, topic.changes['content'].first)
+  end
+
   def test_previous_changes
     # original values should be in previous_changes
     pirate = Pirate.new
