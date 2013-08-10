@@ -87,7 +87,7 @@ module ActiveRecord
           self.value = coder.dump(value)
         end
 
-        def unchanged!
+        def mark_unchanged!
           self.original_value = state == :serialized ? coder.load(value) : coder.load(coder.dump(value))
         end
       end
@@ -104,7 +104,7 @@ module ActiveRecord
 
             serialized_attributes.each do |key, coder|
               if attributes.key?(key)
-                attributes[key] = Attribute.new(coder, attributes[key], serialized).tap(&:unchanged!)
+                attributes[key] = Attribute.new(coder, attributes[key], serialized).tap(&:mark_unchanged!)
               end
             end
 
@@ -168,33 +168,33 @@ module ActiveRecord
 
         def update_columns(attributes)
           super(attributes).tap do
-            serialized_attributes_unchanged!(attributes.keys)
+            mark_serialized_attributes_unchanged!(attributes.keys)
           end
         end
 
         def save(*)
           super.tap do |status|
-            serialized_attributes_unchanged! if status
+            mark_serialized_attributes_unchanged! if status
           end
         end
 
         def save!(*)
           super.tap do
-            serialized_attributes_unchanged!
+            mark_serialized_attributes_unchanged!
           end
         end
 
         def reload(*)
           super.tap do
-            serialized_attributes_unchanged!
+            mark_serialized_attributes_unchanged!
           end
         end
 
         private
 
-        def serialized_attributes_unchanged!(attribute_keys = attributes.keys)
+        def mark_serialized_attributes_unchanged!(attribute_keys = attributes.keys)
           available_serialized_attribute_keys(attribute_keys).each do |k|
-            @attributes[k].unchanged!
+            @attributes[k].mark_unchanged!
           end
         end
 
