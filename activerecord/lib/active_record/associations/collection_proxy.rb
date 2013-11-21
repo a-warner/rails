@@ -281,7 +281,7 @@ module ActiveRecord
       # so method calls may be chained.
       #
       #   class Person < ActiveRecord::Base
-      #     pets :has_many
+      #     has_many :pets
       #   end
       #
       #   person.pets.size # => 0
@@ -669,8 +669,8 @@ module ActiveRecord
       #   #       #<Pet id: 2, name: "Spook", person_id: 1>,
       #   #       #<Pet id: 3, name: "Choo-Choo", person_id: 1>
       #   #    ]
-      def count(column_name = nil, options = {})
-        @association.count(column_name, options)
+      def count(column_name = nil)
+        @association.count(column_name)
       end
 
       # Returns the size of the collection. If the collection hasn't been loaded,
@@ -848,8 +848,6 @@ module ActiveRecord
       def scope
         @association.scope
       end
-
-      # :nodoc:
       alias spawn scope
 
       # Equivalent to <tt>Array#==</tt>. Returns +true+ if the two arrays

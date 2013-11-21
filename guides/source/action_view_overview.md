@@ -68,7 +68,7 @@ Consider the following loop for names:
 ```html+erb
 <h1>Names of all the people</h1>
 <% @people.each do |person| %>
-  Name: <%= person.name %><br/>
+  Name: <%= person.name %><br>
 <% end %>
 ```
 
@@ -152,7 +152,7 @@ By default, Rails will compile each template to a method in order to render it. 
 
 ### Partials
 
-Partial templates – usually just called "partials" – are another device for breaking the rendering process into more manageable chunks. With partials, you can extract pieces of code from your templates to separate files and also reuse them throughout your templates.
+Partial templates - usually just called "partials" - are another device for breaking the rendering process into more manageable chunks. With partials, you can extract pieces of code from your templates to separate files and also reuse them throughout your templates.
 
 #### Naming Partials
 
@@ -269,7 +269,7 @@ Rails will render the `_product_ruler` partial (with no data passed to it) betwe
 
 ### Layouts
 
-Layouts can be used to render a common view template around the results of Rails controller actions. Typically, every Rails has a couple of overall layouts that most pages are rendered within. For example, a site might have a layout for a logged in user, and a layout for the marketing or sales side of the site. The logged in user layout might include top-level navigation that should be present across many controller actions. The sales layout for a SaaS app might include top-level navigation for things like "Pricing" and "Contact Us." You would expect each layout to have a different look and feel. You can read more details about Layouts in the [Layouts and Rendering in Rails](layouts_and_rendering.html) guide.
+Layouts can be used to render a common view template around the results of Rails controller actions. Typically, every Rails application has a couple of overall layouts that most pages are rendered within. For example, a site might have a layout for a logged in user, and a layout for the marketing or sales side of the site. The logged in user layout might include top-level navigation that should be present across many controller actions. The sales layout for a SaaS app might include top-level navigation for things like "Pricing" and "Contact Us." You would expect each layout to have a different look and feel. You can read more details about Layouts in the [Layouts and Rendering in Rails](layouts_and_rendering.html) guide.
 
 Partial Layouts
 ---------------
@@ -1519,6 +1519,72 @@ Formats a number with the specified level of `precision`, which defaults to 3.
 number_with_precision(111.2345)     # => 111.235
 number_with_precision(111.2345, 2)  # => 111.23
 ```
+
+### SanitizeHelper
+
+The SanitizeHelper module provides a set of methods for scrubbing text of undesired HTML elements.
+
+#### sanitize
+
+This sanitize helper will html encode all tags and strip all attributes that aren't specifically allowed.
+
+```ruby
+sanitize @article.body
+```
+
+If either the :attributes or :tags options are passed, only the mentioned tags and attributes are allowed and nothing else.
+
+```ruby
+sanitize @article.body, tags: %w(table tr td), attributes: %w(id class style)
+```
+
+To change defaults for multiple uses, for example adding table tags to the default:
+
+```ruby
+class Application < Rails::Application
+  config.action_view.sanitized_allowed_tags = 'table', 'tr', 'td'
+end
+```
+
+#### sanitize_css(style)
+
+Sanitizes a block of CSS code.
+
+#### strip_links(html) 
+Strips all link tags from text leaving just the link text.
+
+```ruby
+strip_links("<a href="http://rubyonrails.org">Ruby on Rails</a>")
+# => Ruby on Rails
+```
+
+```ruby
+strip_links("emails to <a href="mailto:me@email.com">me@email.com</a>.")
+# => emails to me@email.com.
+```
+
+```ruby
+strip_links('Blog: <a href="http://myblog.com/">Visit</a>.')
+# => Blog: Visit.
+```
+
+#### strip_tags(html) 
+
+Strips all HTML tags from the html, including comments. 
+This uses the html-scanner tokenizer and so its HTML parsing ability is limited by that of html-scanner.
+
+```ruby
+strip_tags("Strip <i>these</i> tags!")
+# => Strip these tags!
+```
+
+```ruby
+strip_tags("<b>Bold</b> no more!  <a href='more.html'>See more</a>")
+# => Bold no more!  See more
+```
+
+NB: The output may still contain unescaped '<', '>', '&' characters and confuse browsers.
+
 
 Localized Views
 ---------------

@@ -37,9 +37,10 @@ For every single method defined as a core extension this guide has a note that s
 
 NOTE: Defined in `active_support/core_ext/object/blank.rb`.
 
-That means that this single call is enough:
+That means that you can require it like this:
 
 ```ruby
+require 'active_support'
 require 'active_support/core_ext/object/blank'
 ```
 
@@ -52,6 +53,7 @@ The next level is to simply load all extensions to `Object`. As a rule of thumb,
 Thus, to load all extensions to `Object` (including `blank?`):
 
 ```ruby
+require 'active_support'
 require 'active_support/core_ext/object'
 ```
 
@@ -60,6 +62,7 @@ require 'active_support/core_ext/object'
 You may prefer just to load all core extensions, there is a file for that:
 
 ```ruby
+require 'active_support'
 require 'active_support/core_ext'
 ```
 
@@ -421,11 +424,9 @@ NOTE: Defined in `active_support/core_ext/object/with_options.rb`.
 
 ### JSON support
 
-Active Support provides a better implemention of `to_json` than the `json` gem ordinarily provides for Ruby objects. This is because some classes, like `Hash` and `OrderedHash` needs special handling in order to provide a proper JSON representation.
+Active Support provides a better implementation of `to_json` than the +json+ gem ordinarily provides for Ruby objects. This is because some classes, like +Hash+, +OrderedHash+, and +Process::Status+ need special handling in order to provide a proper JSON representation.
 
-Active Support also provides an implementation of `as_json` for the `Process::Status` class.
-
-NOTE: Defined in `active_support/core_ext/object/to_json.rb`.
+NOTE: Defined in `active_support/core_ext/object/json.rb`.
 
 ### Instance Variables
 
@@ -1092,6 +1093,15 @@ end
 
 we can access `field_error_proc` in views.
 
+Also, you can pass a block to `cattr_*` to set up the attribute with a default value:
+
+```ruby
+class MysqlAdapter < AbstractAdapter
+  # Generates class methods to access @@emulate_booleans with default value of true.
+  cattr_accessor(:emulate_booleans) { true }
+end
+```
+
 The generation of the reader instance method can be prevented by setting `:instance_reader` to `false` and the generation of the writer instance method can be prevented by setting `:instance_writer` to `false`. Generation of both methods can be prevented by setting `:instance_accessor` to `false`. In all cases, the value must be exactly `false` and not any false value.
 
 ```ruby
@@ -1248,6 +1258,18 @@ Calling `to_s` on a safe string returns a safe string, but coercion with `to_str
 #### Copying
 
 Calling `dup` or `clone` on safe strings yields safe strings.
+
+### `remove`
+
+The method `remove` will remove all occurrences of the pattern:
+
+```ruby
+"Hello World".remove(/Hello /) => "World"
+```
+
+There's also the destructive version `String#remove!`.
+
+NOTE: Defined in `active_support/core_ext/string/filters.rb`.
 
 ### `squish`
 
@@ -1762,6 +1784,12 @@ The method `humanize` gives you a sensible name for display out of an attribute 
 "comments_count".humanize # => "Comments count"
 ```
 
+The capitalization of the first word can be turned off by setting the optional parameter `capitalize` to false:
+
+```ruby
+"author_id".humanize(capitalize: false) # => "author"
+```
+
 The helper method `full_messages` uses `humanize` as a fallback to include attribute names:
 
 ```ruby
@@ -2046,7 +2074,7 @@ BigDecimal.new(5.00, 6).to_s  # => "5.0"
 
 ### `to_formatted_s`
 
-The method `to_formatted_s` provides a default specifier of "F".  This means that a simple call to `to_formatted_s` or `to_s` will result in floating point representation instead of engineering notation:
+Te method `to_formatted_s` provides a default specifier of "F".  This means that a simple call to `to_formatted_s` or `to_s` will result in floating point representation instead of engineering notation:
 
 ```ruby
 BigDecimal.new(5.00, 6).to_formatted_s  # => "5.0"
@@ -2687,14 +2715,14 @@ NOTE: Defined in `active_support/core_ext/hash/except.rb`.
 The method `transform_keys` accepts a block and returns a hash that has applied the block operations to each of the keys in the receiver:
 
 ```ruby
-{nil => nil, 1 => 1, a: :a}.transform_keys{ |key| key.to_s.upcase }
+{nil => nil, 1 => 1, a: :a}.transform_keys { |key| key.to_s.upcase }
 # => {"" => nil, "A" => :a, "1" => 1}
 ```
 
 The result in case of collision is undefined:
 
 ```ruby
-{"a" => 1, a: 2}.transform_keys{ |key| key.to_s.upcase }
+{"a" => 1, a: 2}.transform_keys { |key| key.to_s.upcase }
 # => {"A" => 2}, in my test, can't rely on this result though
 ```
 
@@ -2702,11 +2730,11 @@ This method may be useful for example to build specialized conversions. For inst
 
 ```ruby
 def stringify_keys
-  transform_keys{ |key| key.to_s }
+  transform_keys { |key| key.to_s }
 end
 ...
 def symbolize_keys
-  transform_keys{ |key| key.to_sym rescue key }
+  transform_keys { |key| key.to_sym rescue key }
 end
 ```
 
@@ -2715,7 +2743,7 @@ There's also the bang variant `transform_keys!` that applies the block operation
 Besides that, one can use `deep_transform_keys` and `deep_transform_keys!` to perform the block operation on all the keys in the given hash and all the hashes nested into it. An example of the result is:
 
 ```ruby
-{nil => nil, 1 => 1, nested: {a: 3, 5 => 5}}.deep_transform_keys{ |key| key.to_s.upcase }
+{nil => nil, 1 => 1, nested: {a: 3, 5 => 5}}.deep_transform_keys { |key| key.to_s.upcase }
 # => {""=>nil, "1"=>1, "NESTED"=>{"A"=>3, "5"=>5}}
 ```
 

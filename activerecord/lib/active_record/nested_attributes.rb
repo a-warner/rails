@@ -335,7 +335,7 @@ module ActiveRecord
       # the helper methods defined below. Makes it seem like the nested
       # associations are just regular associations.
       def generate_association_writer(association_name, type)
-        generated_feature_methods.module_eval <<-eoruby, __FILE__, __LINE__ + 1
+        generated_association_methods.module_eval <<-eoruby, __FILE__, __LINE__ + 1
           if method_defined?(:#{association_name}_attributes=)
             remove_method(:#{association_name}_attributes=)
           end
@@ -465,19 +465,17 @@ module ActiveRecord
             association.build(attributes.except(*UNASSIGNABLE_KEYS))
           end
         elsif existing_record = existing_records.detect { |record| record.id.to_s == attributes['id'].to_s }
-          unless association.loaded? || call_reject_if(association_name, attributes)
+          unless call_reject_if(association_name, attributes)
             # Make sure we are operating on the actual object which is in the association's
             # proxy_target array (either by finding it, or adding it if not found)
-            target_record = association.target.detect { |record| record == existing_record }
-
+            # Take into account that the proxy_target may have changed due to callbacks
+            target_record = association.target.detect { |record| record.id.to_s == attributes['id'].to_s }
             if target_record
               existing_record = target_record
             else
-              association.add_to_target(existing_record)
+              association.add_to_target(existing_record, :skip_callbacks)
             end
-          end
 
-          if !call_reject_if(association_name, attributes)
             assign_to_or_mark_for_destruction(existing_record, attributes, options[:allow_destroy])
           end
         else

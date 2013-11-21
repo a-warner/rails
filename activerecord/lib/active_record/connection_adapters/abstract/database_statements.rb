@@ -39,8 +39,8 @@ module ActiveRecord
       # Returns an array of the values of the first column in a select:
       #   select_values("SELECT id FROM companies LIMIT 3") => [1,2,3]
       def select_values(arel, name = nil)
-        result = select_rows(to_sql(arel, []), name)
-        result.map { |v| v[0] }
+        select_rows(to_sql(arel, []), name)
+          .map { |v| v[0] }
       end
 
       # Returns an array of arrays containing the field values.
@@ -286,6 +286,10 @@ module ActiveRecord
       # Inserts the given fixture into the table. Overridden in adapters that require
       # something beyond a simple insert (eg. Oracle).
       def insert_fixture(fixture, table_name)
+        execute fixture_sql(fixture, table_name), 'Fixture Insert'
+      end
+
+      def fixture_sql(fixture, table_name)
         columns = schema_cache.columns_hash(table_name)
 
         key_list   = []
@@ -294,7 +298,7 @@ module ActiveRecord
           quote(value, columns[name])
         end
 
-        execute "INSERT INTO #{quote_table_name(table_name)} (#{key_list.join(', ')}) VALUES (#{value_list.join(', ')})", 'Fixture Insert'
+        "INSERT INTO #{quote_table_name(table_name)} (#{key_list.join(', ')}) VALUES (#{value_list.join(', ')})"
       end
 
       def empty_insert_statement_value
@@ -377,7 +381,7 @@ module ActiveRecord
         def sql_for_insert(sql, pk, id_value, sequence_name, binds)
           [sql, binds]
         end
-  
+
         def last_inserted_id(result)
           row = result.rows.first
           row && row.first

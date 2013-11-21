@@ -3,6 +3,7 @@ require 'action_mailer/collector'
 require 'active_support/core_ext/string/inflections'
 require 'active_support/core_ext/hash/except'
 require 'active_support/core_ext/module/anonymous'
+
 require 'action_mailer/log_subscriber'
 
 module ActionMailer
@@ -361,17 +362,22 @@ module ActionMailer
   #   <tt>delivery_method :test</tt>. Most useful for unit and functional testing.
   class Base < AbstractController::Base
     include DeliveryMethods
+
     abstract!
 
-    include AbstractController::Logger
     include AbstractController::Rendering
-    include AbstractController::Layouts
+
+    include AbstractController::Logger
     include AbstractController::Helpers
     include AbstractController::Translation
     include AbstractController::AssetPaths
     include AbstractController::Callbacks
 
-    self.protected_instance_variables = [:@_action_has_layout]
+    PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + [:@_action_has_layout]
+
+    def _protected_ivars # :nodoc:
+      PROTECTED_IVARS
+    end
 
     helper ActionMailer::MailHelper
 
@@ -509,11 +515,18 @@ module ActionMailer
       process(method_name, *args) if method_name
     end
 
-    def process(*args) #:nodoc:
-      lookup_context.skip_default_locale!
+    def process(method_name, *args) #:nodoc:
+      payload = {
+        mailer: self.class.name,
+        action: method_name
+      }
 
-      super
-      @_message = NullMail.new unless @_mail_was_called
+      ActiveSupport::Notifications.instrument("process.action_mailer", payload) do
+        lookup_context.skip_default_locale!
+
+        super
+        @_message = NullMail.new unless @_mail_was_called
+      end
     end
 
     class NullMail #:nodoc:
@@ -683,9 +696,9 @@ module ActionMailer
       content_type = headers[:content_type]
 
       # Call all the procs (if any)
-      class_default = self.class.default
-      default_values = class_default.merge(class_default) do |k,v|
-        v.is_a?(Proc) ? instance_eval(&v) : v
+      default_values = {}
+      self.class.default.each do |k,v|
+        default_values[k] = v.is_a?(Proc) ? instance_eval(&v) : v
       end
 
       # Handle defaults

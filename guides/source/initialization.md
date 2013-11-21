@@ -29,9 +29,42 @@ quickly.
 Launch!
 -------
 
-Let's start to boot and initialize the app. It all begins with your app's
-`bin/rails` executable. A Rails application is usually started by running
-`rails console` or `rails server`.
+Let's start to boot and initialize the app. A Rails application is usually
+started by running `rails console` or `rails server`.
+
+### `railties/bin/rails`
+
+The `rails` in the command `rails server` is a ruby executable in your load
+path. This executable contains the following lines:
+
+```ruby
+version = ">= 0"
+load Gem.bin_path('railties', 'rails', version)
+```
+
+If you try out this command in a Rails console, you would see that this loads
+`railties/bin/rails`. A part of the file `railties/bin/rails.rb` has the
+following code:
+
+```ruby
+require "rails/cli"
+```
+
+The file `railties/lib/rails/cli` in turn calls
+`Rails::AppRailsLoader.exec_app_rails`.
+
+### `railties/lib/rails/app_rails_loader.rb`
+
+The primary goal of the function `exec_app_rails` is to execute your app's
+`bin/rails`. If the current directory does not have a `bin/rails`, it will
+navigate upwards until it finds a `bin/rails` executable. Thus one can invoke a
+`rails` command from anywhere inside a rails application.
+
+For `rails server` the equivalent of the following command is executed:
+
+```bash
+$ exec ruby bin/rails server
+```
 
 ### `bin/rails`
 
@@ -40,7 +73,7 @@ This file is as follows:
 ```ruby
 #!/usr/bin/env ruby
 APP_PATH = File.expand_path('../../config/application', __FILE__)
-require File.expand_path('../../config/boot', __FILE__)
+require_relative '../config/boot'
 require 'rails/commands'
 ```
 
@@ -54,7 +87,7 @@ The `APP_PATH` constant will be used later in `rails/commands`. The `config/boot
 # Set up gems listed in the Gemfile.
 ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../../Gemfile', __FILE__)
 
-require 'bundler/setup' if File.exists?(ENV['BUNDLE_GEMFILE'])
+require 'bundler/setup' if File.exist?(ENV['BUNDLE_GEMFILE'])
 ```
 
 In a standard Rails application, there's a `Gemfile` which declares all
@@ -121,7 +154,7 @@ when 'server'
   # Change to the application's path if there is no config.ru file in current directory.
   # This allows us to run `rails server` from other directories, but still get
   # the main config.ru and properly set the tmp directory.
-  Dir.chdir(File.expand_path('../../', APP_PATH)) unless File.exists?(File.expand_path("config.ru"))
+  Dir.chdir(File.expand_path('../../', APP_PATH)) unless File.exist?(File.expand_path("config.ru"))
 
   require 'rails/commands/server'
   Rails::Server.new.tap do |server|
@@ -217,12 +250,12 @@ With the `default_options` set to this:
 ```ruby
 def default_options
   {
-    :environment => ENV['RACK_ENV'] || "development",
-    :pid         => nil,
-    :Port        => 9292,
-    :Host        => "0.0.0.0",
-    :AccessLog   => [],
-    :config      => "config.ru"
+    environment: ENV['RACK_ENV'] || "development",
+    pid:         nil,
+    Port:        9292,
+    Host:        "0.0.0.0",
+    AccessLog:   [],
+    config:      "config.ru"
   }
 end
 ```
@@ -468,14 +501,24 @@ def initialize!(group=:default) #:nodoc:
 end
 ```
 
-As you can see, you can only initialize an app once. This is also where the initializers are run.
+As you can see, you can only initialize an app once. The initializers are run through
+the `run_initializers` method which is defined in `railties/lib/rails/initializable.rb`
 
-TODO: review this
+```ruby
+def run_initializers(group=:default, *args)
+  return if instance_variable_defined?(:@ran)
+  initializers.tsort_each do |initializer|
+    initializer.run(*args) if initializer.belongs_to?(group)
+  end
+  @ran = true
+end
+```
 
-The initializers code itself is tricky. What Rails is doing here is it
-traverses all the class ancestors looking for an `initializers` method,
-sorting them and running them. For example, the `Engine` class will make
-all the engines available by providing the `initializers` method.
+The run_initializers code itself is tricky. What Rails is doing here is
+traversing all the class ancestors looking for those that respond to an
+`initializers` method. It then sorts the ancestors by name, and runs them.
+For example, the `Engine` class will make all the engines available by
+providing an `initializers` method on them.
 
 The `Rails::Application` class, as defined in `railties/lib/rails/application.rb`
 defines `bootstrap`, `railtie`, and `finisher` initializers. The `bootstrap` initializers

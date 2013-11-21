@@ -34,12 +34,17 @@ module ActiveRecord
         class Money < Type
           def type_cast(value)
             return if value.nil?
+            return value unless String === value
 
             # Because money output is formatted according to the locale, there are two
             # cases to consider (note the decimal separators):
             #  (1) $12,345,678.12
             #  (2) $12.345.678,12
+            # Negative values are represented as follows:
+            #  (3) -$2.55
+            #  (4) ($2.55)
 
+            value.sub!(/^\((.+)\)$/, '-\1') # (4)
             case value
             when /^-?\D+[\d,]+\.\d{2}$/  # (1)
               value.gsub!(/[^-\d.]/, '')
@@ -229,6 +234,10 @@ module ActiveRecord
 
             ConnectionAdapters::PostgreSQLColumn.string_to_hstore value
           end
+
+          def accessor
+            ActiveRecord::Store::StringKeyedHashAccessor
+          end
         end
 
         class Cidr < Type
@@ -240,10 +249,18 @@ module ActiveRecord
         end
 
         class Json < Type
+          def type_cast_for_write(value)
+            ConnectionAdapters::PostgreSQLColumn.json_to_string value
+          end
+
           def type_cast(value)
             return if value.nil?
 
             ConnectionAdapters::PostgreSQLColumn.string_to_json value
+          end
+
+          def accessor
+            ActiveRecord::Store::StringKeyedHashAccessor
           end
         end
 

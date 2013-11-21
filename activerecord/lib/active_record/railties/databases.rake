@@ -271,7 +271,7 @@ db_namespace = namespace :db do
       desc 'Clear a db/schema_cache.dump file.'
       task :clear => [:environment, :load_config] do
         filename = File.join(ActiveRecord::Tasks::DatabaseTasks.db_dir, "schema_cache.dump")
-        FileUtils.rm(filename) if File.exists?(filename)
+        FileUtils.rm(filename) if File.exist?(filename)
       end
     end
 
@@ -287,6 +287,7 @@ db_namespace = namespace :db do
       if ActiveRecord::Base.connection.supports_migrations?
         File.open(filename, "a") do |f|
           f.puts ActiveRecord::Base.connection.dump_schema_information
+          f.print "\n"
         end
       end
       db_namespace['structure:dump'].reenable
@@ -320,11 +321,14 @@ db_namespace = namespace :db do
     # desc "Recreate the test database from an existent schema.rb file"
     task :load_schema => 'db:test:purge' do
       begin
+        should_reconnect = ActiveRecord::Base.connection_pool.active_connection?
         ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
         ActiveRecord::Schema.verbose = false
         db_namespace["schema:load"].invoke
       ensure
-        ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[ActiveRecord::Tasks::DatabaseTasks.env])
+        if should_reconnect
+          ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[ActiveRecord::Tasks::DatabaseTasks.env])
+        end
       end
     end
 

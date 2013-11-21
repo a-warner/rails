@@ -125,30 +125,30 @@ class DirtyTest < ActiveRecord::TestCase
   end
 
   def test_time_attributes_changes_without_time_zone
-    target = Class.new(ActiveRecord::Base)
-    target.table_name = 'pirates'
+    with_timezone_config aware_attributes: false do
+      target = Class.new(ActiveRecord::Base)
+      target.table_name = 'pirates'
 
-    target.time_zone_aware_attributes = false
+      # New record - no changes.
+      pirate = target.new
+      assert !pirate.created_on_changed?
+      assert_nil pirate.created_on_change
 
-    # New record - no changes.
-    pirate = target.new
-    assert !pirate.created_on_changed?
-    assert_nil pirate.created_on_change
+      # Saved - no changes.
+      pirate.catchphrase = 'arrrr, time zone!!'
+      pirate.save!
+      assert !pirate.created_on_changed?
+      assert_nil pirate.created_on_change
 
-    # Saved - no changes.
-    pirate.catchphrase = 'arrrr, time zone!!'
-    pirate.save!
-    assert !pirate.created_on_changed?
-    assert_nil pirate.created_on_change
-
-    # Change created_on.
-    old_created_on = pirate.created_on
-    pirate.created_on = Time.now + 1.day
-    assert pirate.created_on_changed?
-    # kind_of does not work because
-    # ActiveSupport::TimeWithZone.name == 'Time'
-    assert_instance_of Time, pirate.created_on_was
-    assert_equal old_created_on, pirate.created_on_was
+      # Change created_on.
+      old_created_on = pirate.created_on
+      pirate.created_on = Time.now + 1.day
+      assert pirate.created_on_changed?
+      # kind_of does not work because
+      # ActiveSupport::TimeWithZone.name == 'Time'
+      assert_instance_of Time, pirate.created_on_was
+      assert_equal old_created_on, pirate.created_on_was
+    end
   end
 
 
@@ -446,7 +446,8 @@ class DirtyTest < ActiveRecord::TestCase
     with_partial_writes(Topic) do
       topic = Topic.create!(:content => {:a => "a"})
       topic.content[:b] = "b"
-      #assert topic.changed? # Known bug, will fail
+      assert topic.changed?
+      assert topic.content_changed?
       topic.save!
       assert_equal "b", topic.content[:b]
       topic.reload
@@ -476,6 +477,38 @@ class DirtyTest < ActiveRecord::TestCase
       topic = Topic.first
       assert_not_nil topic.content
     end
+  end
+
+  def test_save_should_not_update_unchanged_serialized_attributes
+    with_partial_writes(Topic) do
+      topic = Topic.find(Topic.create!(:author_name => 'Bill', :content => {:a => "a"}).id)
+      assert_empty topic.send(:keys_for_partial_write)
+
+      topic.content[:b] = 'b'
+
+      assert_not_empty topic.send(:keys_for_partial_write)
+      topic.save!
+
+      assert_equal Topic.find(topic.id).content[:b], 'b'
+    end
+  end
+
+  def test_changed_serialized_attributes_should_also_be_in_previous_changes
+    topic = Topic.find(Topic.create!(:author_name => 'Bill', :content => {:a => "a"}).id)
+    assert topic.previous_changes.empty?
+
+    topic.content[:c] = 'd'
+    topic.save!
+
+    assert topic.previous_changes.key?('content')
+  end
+
+  def test_changes_for_serialized_attributes
+    topic = Topic.create!(:author_name => 'Andrew', :content => { :a => 'a' })
+
+    topic.content[:b] = 'b'
+
+    assert_equal({ :a => 'a' }.with_indifferent_access, topic.changes['content'].first)
   end
 
   def test_previous_changes
