@@ -68,7 +68,7 @@ module ActiveRecord
         end
       end
 
-      class Attribute < Struct.new(:coder, :value, :state) # :nodoc:
+      class Attribute < Struct.new(:coder, :value, :state, :original_value) # :nodoc:
         def unserialized_value(v = value)
           state == :serialized ? unserialize(v) : value
         end
@@ -86,6 +86,10 @@ module ActiveRecord
           self.state = :serialized
           self.value = coder.dump(value)
         end
+
+        def mark_unchanged!
+          self.original_value = state == :serialized ? coder.load(value) : coder.load(coder.dump(value))
+        end
       end
 
       # This is only added to the model when serialize is called, which
@@ -100,7 +104,7 @@ module ActiveRecord
 
             serialized_attributes.each do |key, coder|
               if attributes.key?(key)
-                attributes[key] = Attribute.new(coder, attributes[key], serialized)
+                attributes[key] = Attribute.new(coder, attributes[key], serialized).tap(&:mark_unchanged!)
               end
             end
 
@@ -118,7 +122,7 @@ module ActiveRecord
 
         def _field_changed?(attr, old, value)
           if self.class.serialized_attributes.include?(attr)
-            old != value
+            old != value || serialized_attribute_changes.include?(attr)
           else
             super
           end
@@ -148,6 +152,54 @@ module ActiveRecord
           else
             super
           end
+        end
+
+        def changed_attributes
+          super.merge(serialized_attribute_changes)
+        end
+
+        def serialized_attribute_changes
+          available_serialized_attribute_keys.each_with_object({}) do |key, changed_attrs|
+            if @attributes[key].original_value != __send__(key)
+              changed_attrs[key] = @attributes[key].original_value
+            end
+          end
+        end
+
+        def update_columns(attributes)
+          super(attributes).tap do
+            mark_serialized_attributes_unchanged!(attributes.keys)
+          end
+        end
+
+        def save(*)
+          super.tap do |status|
+            mark_serialized_attributes_unchanged! if status
+          end
+        end
+
+        def save!(*)
+          super.tap do
+            mark_serialized_attributes_unchanged!
+          end
+        end
+
+        def reload(*)
+          super.tap do
+            mark_serialized_attributes_unchanged!
+          end
+        end
+
+        private
+
+        def mark_serialized_attributes_unchanged!(attribute_keys = attributes.keys)
+          available_serialized_attribute_keys(attribute_keys).each do |k|
+            @attributes[k].mark_unchanged!
+          end
+        end
+
+        def available_serialized_attribute_keys(for_attribute_keys = attributes.keys)
+          for_attribute_keys.map(&:to_s) & self.class.serialized_attributes.keys
         end
       end
     end
